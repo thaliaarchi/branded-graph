@@ -17,7 +17,6 @@ type InvariantLifetime<'id> = PhantomData<fn(&'id ()) -> &'id ()>;
 ///
 /// See the documentation of [`Graph`] for more details.
 #[repr(transparent)]
-#[derive(PartialEq, Eq)]
 pub struct BrandedGraph {
     inner: Graph<'static>,
 }
@@ -143,7 +142,6 @@ pub struct BrandedGraph {
 /// assert_impl_all!(Node: Send, Sync);
 /// ```
 #[repr(transparent)]
-#[derive(PartialEq, Eq)]
 pub struct Graph<'id> {
     nodes: Vec<Node<'id>>,
     _marker: InvariantLifetime<'id>,
@@ -211,6 +209,10 @@ impl<'id> Graph<'id> {
         self.nodes.len()
     }
 
+    pub fn nodes(&self) -> &[Node<'id>] {
+        &self.nodes
+    }
+
     pub fn iter(&self) -> impl Iterator<Item = &Node<'id>> {
         self.nodes.iter()
     }
@@ -255,12 +257,16 @@ impl<'id> Index<NodeRef<'id>> for Graph<'id> {
     type Output = Node<'id>;
 
     fn index(&self, index: NodeRef<'id>) -> &Node<'id> {
+        // SAFETY: The graph size is monotonically increasing, so the index will
+        // always be in bounds.
         unsafe { self.nodes.get_unchecked(index.index()) }
     }
 }
 
 impl<'id> IndexMut<NodeRef<'id>> for Graph<'id> {
     fn index_mut(&mut self, index: NodeRef<'id>) -> &mut Node<'id> {
+        // SAFETY: The graph size is monotonically increasing, so the index will
+        // always be in bounds.
         unsafe { self.nodes.get_unchecked_mut(index.index()) }
     }
 }
@@ -276,9 +282,17 @@ impl Clone for BrandedGraph {
     }
 
     fn clone_from(&mut self, source: &Self) {
-        self.inner.nodes.clone_from(&source.inner.nodes)
+        self.inner.nodes.clone_from(&source.inner.nodes);
     }
 }
+
+impl PartialEq for BrandedGraph {
+    fn eq(&self, other: &Self) -> bool {
+        self.inner.nodes == other.inner.nodes
+    }
+}
+
+impl Eq for BrandedGraph {}
 
 impl Debug for BrandedGraph {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {

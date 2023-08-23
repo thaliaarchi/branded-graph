@@ -1,4 +1,4 @@
-# branded-graph
+# Branded graph in Rust
 
 Demonstration of a branded graph structure with safe and fast self-references.
 
