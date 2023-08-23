@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"branded_graph":[["impl&lt;'id&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.71.0/core/ops/index/trait.Index.html\" title=\"trait core::ops::index::Index\">Index</a>&lt;<a class=\"struct\" href=\"branded_graph/struct.NodeRef.html\" title=\"struct branded_graph::NodeRef\">NodeRef</a>&lt;'id&gt;&gt; for <a class=\"struct\" href=\"branded_graph/struct.Graph.html\" title=\"struct branded_graph::Graph\">Graph</a>&lt;'id&gt;"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
