@@ -144,7 +144,7 @@ pub struct BrandedGraph {
 #[repr(transparent)]
 pub struct Graph<'id> {
     nodes: Vec<Node<'id>>,
-    _marker: InvariantLifetime<'id>,
+    marker: InvariantLifetime<'id>,
 }
 
 /// A reference to a node in the graph with lifetime `'id`.
@@ -155,7 +155,7 @@ pub struct Graph<'id> {
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct NodeRef<'id> {
     index: u32,
-    _marker: InvariantLifetime<'id>,
+    marker: InvariantLifetime<'id>,
 }
 
 /// A node in the graph with lifetime `'id`.
@@ -172,7 +172,7 @@ impl BrandedGraph {
         BrandedGraph {
             inner: Graph {
                 nodes: Vec::new(),
-                _marker: InvariantLifetime::default(),
+                marker: InvariantLifetime::default(),
             },
         }
     }
@@ -244,7 +244,7 @@ impl<'id> NodeRef<'id> {
     fn new(index: usize) -> Self {
         NodeRef {
             index: index as u32,
-            _marker: InvariantLifetime::default(),
+            marker: InvariantLifetime::default(),
         }
     }
 
@@ -276,7 +276,7 @@ impl Clone for BrandedGraph {
         BrandedGraph {
             inner: Graph {
                 nodes: self.inner.nodes.clone(),
-                _marker: InvariantLifetime::default(),
+                marker: InvariantLifetime::default(),
             },
         }
     }
