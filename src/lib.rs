@@ -312,16 +312,12 @@ impl Debug for Graph<'_> {
                 }
             }
 
-            f.debug_map()
-                .entries(
-                    self.iter_entries()
-                        .map(|(i, node)| (DisplayDebug(i), DisplayDebug(node))),
-                )
-                .finish()
+            let entries = self
+                .iter_entries()
+                .map(|(i, node)| (DisplayDebug(i), DisplayDebug(node)));
+            f.debug_map().entries(entries).finish()
         } else {
-            f.debug_map()
-                .entries(self.nodes.iter().enumerate())
-                .finish()
+            f.debug_map().entries(self.iter().enumerate()).finish()
         }
     }
 }
