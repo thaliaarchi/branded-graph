@@ -12,19 +12,19 @@ use std::ops::{Index, IndexMut};
 /// lifetime.
 type InvariantLifetime<'id> = PhantomData<fn(&'id ()) -> &'id ()>;
 
-/// An opaque, owned graph structure, that must be unlocked to be accessed or
-/// modified.
+/// An opaque, owned graph structure, that may only be accessed or modified
+/// within branded scopes.
 ///
 /// See the documentation of [`Graph`] for more details.
 #[repr(transparent)]
-pub struct BrandedGraph {
+pub struct OwnedGraph {
     inner: Graph<'static>,
 }
 
 /// A branded graph structure with safe and fast self-references.
 ///
 /// A `Graph` can only be obtained as a `&` or `&mut` reference via a
-/// [`BrandedGraph`] by [`unlock`](BrandedGraph::unlock) or [`unlock_mut`](BrandedGraph::unlock_mut).
+/// [`OwnedGraph`] by [`with`](OwnedGraph::with) or [`with_mut`](OwnedGraph::with_mut).
 ///
 /// A node is referenced through a [`NodeRef<'id>`](NodeRef) index, which is
 /// branded with an invariant lifetime, `'id`, tied to the `Graph` that created
@@ -42,12 +42,12 @@ pub struct BrandedGraph {
 ///
 /// # Example
 ///
-/// A graph is modified within `unlock` or `unlock_mut`:
+/// A graph is modified within `with_mut`:
 ///
 /// ```
 /// # use branded_graph::*;
-/// let mut g = BrandedGraph::new();
-/// g.unlock_mut(|g: &mut Graph<'_>| {
+/// let mut g = OwnedGraph::new();
+/// g.with_mut(|g: &mut Graph<'_>| {
 ///     let x = g.push(Node::Number(1));
 ///     let y = g.push(Node::Number(2));
 ///     g.push(Node::Add(x, y));
@@ -66,10 +66,10 @@ pub struct BrandedGraph {
 ///
 /// ```compile_fail
 /// # use branded_graph::*;
-/// let mut g1 = BrandedGraph::new();
-/// let mut g2 = BrandedGraph::new();
-/// g1.unlock_mut(|g1| {
-///     g2.unlock_mut(|g2| {
+/// let mut g1 = OwnedGraph::new();
+/// let mut g2 = OwnedGraph::new();
+/// g1.with_mut(|g1| {
+///     g2.with_mut(|g2| {
 ///         let x = g1.push(Node::Number(42));
 ///         println!("{}", g1[x]); // ok
 ///         println!("{}", g2[x]); // error
@@ -81,10 +81,10 @@ pub struct BrandedGraph {
 ///
 /// ```compile_fail
 /// # use branded_graph::*;
-/// # let mut g1 = BrandedGraph::new();
-/// # let mut g2 = BrandedGraph::new();
-/// # g1.unlock_mut(|g1| {
-/// #     g2.unlock_mut(|g2| {
+/// # let mut g1 = OwnedGraph::new();
+/// # let mut g2 = OwnedGraph::new();
+/// # g1.with_mut(|g1| {
+/// #     g2.with_mut(|g2| {
 /// // …
 ///         let x = g1.push(Node::Number(1));
 ///         let y = g1.push(Node::Number(2));
@@ -97,10 +97,10 @@ pub struct BrandedGraph {
 ///
 /// ```compile_fail
 /// # use branded_graph::*;
-/// # let mut g1 = BrandedGraph::new();
-/// # let mut g2 = BrandedGraph::new();
-/// # g1.unlock_mut(|g1| {
-/// #     g2.unlock_mut(|g2| {
+/// # let mut g1 = OwnedGraph::new();
+/// # let mut g2 = OwnedGraph::new();
+/// # g1.with_mut(|g1| {
+/// #     g2.with_mut(|g2| {
 /// // …
 ///         std::mem::replace(&mut g1, g2); // error
 /// #     });
@@ -111,10 +111,10 @@ pub struct BrandedGraph {
 ///
 /// ```compile_fail
 /// # use branded_graph::*;
-/// # let mut g1 = BrandedGraph::new();
-/// # let mut g2 = BrandedGraph::new();
-/// # g1.unlock_mut(|g1| {
-/// #     g2.unlock_mut(|g2| {
+/// # let mut g1 = OwnedGraph::new();
+/// # let mut g2 = OwnedGraph::new();
+/// # g1.with_mut(|g1| {
+/// #     g2.with_mut(|g2| {
 /// // …
 ///         let x = g1.push(Node::Number(42));
 ///         let y = g2.push(Node::Number(42));
@@ -127,8 +127,8 @@ pub struct BrandedGraph {
 ///
 /// ```compile_fail
 /// # use branded_graph::*;
-/// let mut g = BrandedGraph::new();
-/// let node = g.unlock_mut(|g| g.push(Node::Number(42))); // error
+/// let mut g = OwnedGraph::new();
+/// let node = g.with_mut(|g| g.push(Node::Number(42))); // error
 /// ```
 ///
 /// These types are all `Send + Sync`:
@@ -136,7 +136,7 @@ pub struct BrandedGraph {
 /// ```
 /// # use branded_graph::*;
 /// # use static_assertions::assert_impl_all;
-/// assert_impl_all!(BrandedGraph: Send, Sync);
+/// assert_impl_all!(OwnedGraph: Send, Sync);
 /// assert_impl_all!(Graph: Send, Sync);
 /// assert_impl_all!(NodeRef: Send, Sync);
 /// assert_impl_all!(Node: Send, Sync);
@@ -167,9 +167,9 @@ pub enum Node<'id> {
     Add(NodeRef<'id>, NodeRef<'id>),
 }
 
-impl BrandedGraph {
+impl OwnedGraph {
     pub fn new() -> Self {
-        BrandedGraph {
+        OwnedGraph {
             inner: Graph {
                 nodes: Vec::new(),
                 marker: InvariantLifetime::default(),
@@ -178,12 +178,12 @@ impl BrandedGraph {
     }
 
     /// Obtain a reference to the inner `&Graph<'id>`.
-    pub fn unlock<T>(&self, f: impl for<'a> FnOnce(&Graph<'a>) -> T) -> T {
+    pub fn with<T>(&self, f: impl for<'a> FnOnce(&Graph<'a>) -> T) -> T {
         f(&self.inner)
     }
 
     /// Obtain a reference to the inner `&mut Graph<'id>`.
-    pub fn unlock_mut<T>(&mut self, f: impl for<'a> FnOnce(&mut Graph<'a>) -> T) -> T {
+    pub fn with_mut<T>(&mut self, f: impl for<'a> FnOnce(&mut Graph<'a>) -> T) -> T {
         f(&mut self.inner)
     }
 }
@@ -271,9 +271,9 @@ impl<'id> IndexMut<NodeRef<'id>> for Graph<'id> {
     }
 }
 
-impl Clone for BrandedGraph {
+impl Clone for OwnedGraph {
     fn clone(&self) -> Self {
-        BrandedGraph {
+        OwnedGraph {
             inner: Graph {
                 nodes: self.inner.nodes.clone(),
                 marker: InvariantLifetime::default(),
@@ -286,17 +286,17 @@ impl Clone for BrandedGraph {
     }
 }
 
-impl PartialEq for BrandedGraph {
+impl PartialEq for OwnedGraph {
     fn eq(&self, other: &Self) -> bool {
         self.inner.nodes == other.inner.nodes
     }
 }
 
-impl Eq for BrandedGraph {}
+impl Eq for OwnedGraph {}
 
-impl Debug for BrandedGraph {
+impl Debug for OwnedGraph {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.write_str("Branded")?;
+        f.write_str("Owned")?;
         Debug::fmt(&self.inner, f)
     }
 }
